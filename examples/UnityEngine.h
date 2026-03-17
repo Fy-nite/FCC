@@ -204,6 +204,7 @@ namespace UnityEngine
             int childCount;
 
             void Translate(Vector3 translation);
+            void Translate(float x, float y, float z);
             void Rotate(Vector3 eulerAngles);
             void Rotate(Quaternion rotation);
             void Rotate(Vector3* axis);
@@ -243,6 +244,7 @@ namespace UnityEngine
             bool TryGetComponent(std::string typeName, Component result);
             Component GetComponentInChildren(std::string typeName);
             Component GetComponentInParent(std::string typeName);
+            Transform get_transform();
 
             void SendMessage(std::string methodName);
             void SendMessage(std::string methodName, std::string value);

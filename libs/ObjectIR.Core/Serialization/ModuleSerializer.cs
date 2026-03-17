@@ -1609,6 +1609,20 @@ Name = property.Name,
                 }
                 break;
 
+            case OpCode.Ldsfld:
+                if (instruction is LoadStaticFieldInstruction loadStaticField)
+                {
+                    return $"ldsfld {loadStaticField.Field.DeclaringType.GetQualifiedName()}.{loadStaticField.Field.Name}";
+                }
+                break;
+
+            case OpCode.Stsfld:
+                if (instruction is StoreStaticFieldInstruction storeStaticField)
+                {
+                    return $"stsfld {storeStaticField.Field.DeclaringType.GetQualifiedName()}.{storeStaticField.Field.Name}";
+                }
+                break;
+
             case OpCode.LdcI4:
             case OpCode.LdcI8:
             case OpCode.LdcR4:

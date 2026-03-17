@@ -1,0 +1,23 @@
+module test version 1.0.0
+// Program class
+class Program {
+    method get_value() -> int32 {
+        ldc.i4 42
+        ret
+    }
+
+    method Main() -> void {
+        local v: int32
+
+        ldstr "Hello, World!"
+        call System.Console.WriteLine(System.string) -> void
+        call __global.get_value() -> int32
+        stloc v
+        ldstr "get_value returned: "
+        call System.Console.Write(System.string) -> void
+        ldloc v
+        call System.Console.Write(System.string) -> void
+        ldstr "n"
+        call System.Console.Write(System.string) -> void
+    }
+}

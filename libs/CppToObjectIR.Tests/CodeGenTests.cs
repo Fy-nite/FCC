@@ -1,5 +1,6 @@
 using CppToObjectIR;
 using ObjectIR.Core.IR;
+using ObjectIR.Core.Serialization;
 using Xunit;
 
 namespace CppToObjectIR.Tests;
@@ -357,5 +358,101 @@ namespace Animals {
         Assert.NotNull(dog.BaseType);
         Assert.True(dog.Methods.Any(m => m.IsVirtual));
         Assert.True(dog.Methods.Any(m => m.IsConstructor));
+    }
+
+    // -------------------------------------------------------------------------
+    // Field access instructions  (ldfld / stfld / ldsfld / stsfld)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Compile_StaticField_Write_EmitsStoreStaticFieldInstruction()
+    {
+        const string src = @"
+class Counter {
+public:
+    static int value;
+    static void Set(int v) { value = v; }
+};";
+        var module = Compile(src);
+        var cls = Assert.IsType<ClassDefinition>(module.Types[0]);
+        var method = cls.Methods.First(m => m.Name == "Set");
+        Assert.Contains(method.Instructions, i => i is StoreStaticFieldInstruction);
+    }
+
+    [Fact]
+    public void Compile_StaticField_Read_EmitsLoadStaticFieldInstruction()
+    {
+        const string src = @"
+class Counter {
+public:
+    static int value;
+    static int Get() { return value; }
+};";
+        var module = Compile(src);
+        var cls = Assert.IsType<ClassDefinition>(module.Types[0]);
+        var method = cls.Methods.First(m => m.Name == "Get");
+        Assert.Contains(method.Instructions, i => i is LoadStaticFieldInstruction);
+    }
+
+    [Fact]
+    public void Compile_StaticField_DumpText_EmitsStsfldWithOperand()
+    {
+        const string src = @"
+class Counter {
+public:
+    static int value;
+    static void Set(int v) { value = v; }
+};";
+        var module = Compile(src);
+        var text = module.DumpText();
+        // stsfld must be followed by the qualified field reference, not a TODO comment
+        Assert.Contains("stsfld Counter.value", text);
+        Assert.DoesNotContain("stsfld  // TODO", text);
+    }
+
+    [Fact]
+    public void Compile_StaticField_DumpText_EmitsLdsfldWithOperand()
+    {
+        const string src = @"
+class Counter {
+public:
+    static int value;
+    static int Get() { return value; }
+};";
+        var module = Compile(src);
+        var text = module.DumpText();
+        // ldsfld must be followed by the qualified field reference, not a TODO comment
+        Assert.Contains("ldsfld Counter.value", text);
+        Assert.DoesNotContain("ldsfld  // TODO", text);
+    }
+
+    [Fact]
+    public void Compile_InstanceField_DumpText_EmitsLdfldWithOperand()
+    {
+        const string src = @"
+class Foo {
+public:
+    int x;
+    int getX() { return x; }
+};";
+        var module = Compile(src);
+        var text = module.DumpText();
+        Assert.Contains("ldfld Foo.x", text);
+        Assert.DoesNotContain("ldfld  // TODO", text);
+    }
+
+    [Fact]
+    public void Compile_InstanceField_DumpText_EmitsStfldWithOperand()
+    {
+        const string src = @"
+class Foo {
+public:
+    int x;
+    void setX(int v) { x = v; }
+};";
+        var module = Compile(src);
+        var text = module.DumpText();
+        Assert.Contains("stfld Foo.x", text);
+        Assert.DoesNotContain("stfld  // TODO", text);
     }
 }

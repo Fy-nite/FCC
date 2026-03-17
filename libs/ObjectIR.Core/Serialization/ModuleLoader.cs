@@ -511,7 +511,7 @@ public sealed class ModuleLoader
     {
         var instructionKeywords = new[] 
         { 
-            "ldarg", "ldloc", "ldfld", "stloc", "stfld", "ldc", "ldstr", "ldnull",
+            "ldarg", "ldloc", "ldfld", "ldsfld", "stloc", "stfld", "stsfld", "ldc", "ldstr", "ldnull",
             "add", "sub", "mul", "div", "rem", "neg", "ceq", "cgt", "clt",
             "call", "callvirt", "newobj", "dup", "pop", "ret", "br", "beq",
             "if", "while", "for", "switch"

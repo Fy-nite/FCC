@@ -487,7 +487,10 @@ public sealed class IrCodeGenerator
                 break;
 
             case FloatLiteralNode f:
-                il.EmitLoadConstant(f.Value, TypeReference.Float64);
+                if (hintType == TypeReference.Float32)
+                    il.EmitLoadConstant((float)f.Value, TypeReference.Float32);
+                else
+                    il.EmitLoadConstant(f.Value, TypeReference.Float64);
                 break;
 
             case StringLiteralNode s:
@@ -761,7 +764,76 @@ public sealed class IrCodeGenerator
         TypeReference? valueHint = hintType;
         if (valueHint == null && assign.Target is IdentifierNode targetId && _locals.TryGetValue(targetId.Name, out var targetType))
             valueHint = targetType;
+        // Special-case instance field assignments to ensure correct stack order
+        if (assign.Target is IdentifierNode id && (_currentType is ClassDefinition classDef || _currentType is StructDefinition))
+        {
+            // Find a field with this name
+            FieldDefinition? field = null;
+            bool isStatic = false;
+            TypeReference? declaringType = null;
+            if (_currentType is ClassDefinition cdef)
+            {
+                field = cdef.Fields.FirstOrDefault(f => f.Name == id.Name);
+                if (field != null)
+                {
+                    isStatic = field.IsStatic;
+                    declaringType = TypeReference.FromName(cdef.GetQualifiedName());
+                }
+            }
+            else if (_currentType is StructDefinition sdef)
+            {
+                field = sdef.Fields.FirstOrDefault(f => f.Name == id.Name);
+                if (field != null)
+                {
+                    isStatic = field.IsStatic;
+                    declaringType = TypeReference.FromName(sdef.GetQualifiedName());
+                }
+            }
 
+            if (field != null && !isStatic)
+            {
+                var fieldRef = new FieldReference(declaringType ?? TypeReference.FromName("__unknown"), field.Name, field.Type);
+
+                if (assign.Operator != AssignOp.Assign)
+                {
+                    // Compound assignment on instance field:
+                    // Emit: ldarg.0; dup; ldfld <field>; <rhs>; <op>; stfld <field>
+                    il.EmitLoadArg(0);
+                    il.EmitDup();
+                    il.EmitLoadField(fieldRef);
+                    EmitExpression(assign.Value, il, valueHint ?? field.Type);
+                    var arithOp = assign.Operator switch
+                    {
+                        AssignOp.AddAssign => ArithmeticOp.Add,
+                        AssignOp.SubAssign => ArithmeticOp.Sub,
+                        AssignOp.MulAssign => ArithmeticOp.Mul,
+                        AssignOp.DivAssign => ArithmeticOp.Div,
+                        AssignOp.RemAssign => ArithmeticOp.Rem,
+                        AssignOp.AndAssign => ArithmeticOp.And,
+                        AssignOp.OrAssign  => ArithmeticOp.Or,
+                        AssignOp.XorAssign => ArithmeticOp.Xor,
+                        AssignOp.ShlAssign => ArithmeticOp.Shl,
+                        AssignOp.ShrAssign => ArithmeticOp.Shr,
+                        _ => ArithmeticOp.Add
+                    };
+                    il.Emit(new ArithmeticInstruction(arithOp));
+                    il.EmitStoreField(fieldRef);
+                }
+                else
+                {
+                    // Simple assignment on instance field: ldarg.0; <value>; stfld
+                    il.EmitLoadArg(0);
+                    EmitExpression(assign.Value, il, valueHint ?? field.Type);
+                    il.EmitStoreField(fieldRef);
+                }
+
+                // push stored value (assignment is an expression)
+                EmitExpression(assign.Target, il);
+                return;
+            }
+        }
+
+        // Fallback: generic handling for locals/params/static fields/others
         if (assign.Operator != AssignOp.Assign)
         {
             // Compound assignment: load, operate, store

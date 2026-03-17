@@ -7,53 +7,50 @@ class Meow {
 
     method OnStart() -> void {
         ldc.i4 50
-        ldarg this
-        stfld FCC.Meow.speedX
-        ldarg this
-        ldfld FCC.Meow.speedX
+        stsfld FCC.Meow.speedX
+        ldsfld FCC.Meow.speedX
         pop
         ldc.i4 90
-        ldarg this
-        stfld FCC.Meow.speedY
-        ldarg this
-        ldfld FCC.Meow.speedY
+        stsfld FCC.Meow.speedY
+        ldsfld FCC.Meow.speedY
         pop
         ldc.i4 50
-        ldarg this
-        stfld FCC.Meow.speedZ
-        ldarg this
-        ldfld FCC.Meow.speedZ
+        stsfld FCC.Meow.speedZ
+        ldsfld FCC.Meow.speedZ
         pop
     }
 
     method OnUpdate() -> void {
         local dt: float32
         local cat: UnityEngine.GameObject
-        local Rotation: UnityEngine.Vector3
+        local rotX: float32
+        local rotY: float32
+        local rotZ: float32
+        local tf: UnityEngine.Transform
 
         call UnityEngine.Time.get_deltaTime() -> float32
         stloc dt
         call IRRuntime.GetSelf() -> UnityEngine.GameObject
         stloc cat
-        ldarg this
-        ldfld FCC.Meow.speedX
+        ldsfld FCC.Meow.speedX
         ldloc dt
         mul
-        ldarg this
-        ldfld FCC.Meow.speedY
+        stloc rotX
+        ldsfld FCC.Meow.speedY
         ldloc dt
         mul
-        ldarg this
-        ldfld FCC.Meow.speedZ
+        stloc rotY
+        ldsfld FCC.Meow.speedZ
         ldloc dt
         mul
-        newobj UnityEngine.Vector3.constructor(float32, float32, float32)
-        stloc Rotation
+        stloc rotZ
         ldloc cat
-        ldfld UnityEngine.GameObject.transform
-        ldloc Rotation
-        callvirt UnityEngine.Transform.Rotate(UnityEngine.Vector3) -> void
-        ldstr "Rotating cat by 50, 90, 50 degrees per second"
-        call UnityEngine.Debug.Log(System.string) -> void
+        callvirt UnityEngine.GameObject.get_transform() -> UnityEngine.Transform
+        stloc tf
+        ldloc tf
+        ldloc rotX
+        ldloc rotY
+        ldloc rotZ
+        callvirt UnityEngine.Transform.Rotate(float32, float32, float32) -> void
     }
 }
