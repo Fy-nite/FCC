@@ -43,9 +43,8 @@ else
 
 		var module = CppCompiler.Compile(moduleName, source, registry);
 		var serializer = new ModuleSerializer(module);
-		var ir = serializer.DumpToIRCode();
-		File.WriteAllText(output, ir);
-		Console.WriteLine($"Wrote {output}");
+		var ir = serializer.DumpToFOB();
+		File.WriteAllBytes(output, ir);
 		Environment.ExitCode = 0;
 	}
 	catch (Exception ex)

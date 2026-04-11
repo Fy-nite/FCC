@@ -682,7 +682,7 @@ Name = property.Name,
         if (module.Metadata.TryGetValue("EntryPoint", out var entryMetadata) && entryMetadata is string entryString)
         {
             Console.WriteLine($"DEBUG: EntryPoint metadata: {entryString}");
-            // Parse entry point in format "ClassName.MethodName"
+            // If metadata contains a dot, treat as Type.Method qualified name
             int dotIndex = entryString.LastIndexOf('.');
             if (dotIndex > 0)
             {
@@ -717,9 +717,64 @@ Name = property.Name,
                     }
                 }
             }
+            else
+            {
+                // Unqualified name — try to find a top-level function first
+                var functions = module.Functions;
+                for (int fi = 0; fi < functions.Count; fi++)
+                {
+                    if (functions[fi].Name == entryString)
+                    {
+                        Console.WriteLine($"DEBUG: Found free function entry point '{entryString}' at index {fi}");
+                        // Encode function entry as 0xFFFF << 16 | function_index
+                        return (uint)((0xFFFF << 16) | (uint)fi);
+                    }
+                }
+
+                // If not found as free function, try unqualified method name across types
+                for (int typeIndex = 0; typeIndex < types.Length; typeIndex++)
+                {
+                    var type = types[typeIndex];
+                    if (type.Methods == null) continue;
+                    for (int methodIndex = 0; methodIndex < type.Methods.Length; methodIndex++)
+                    {
+                        if (type.Methods[methodIndex].Name == entryString)
+                        {
+                            Console.WriteLine($"DEBUG: Found method entry point {entryString} at type {typeIndex} method {methodIndex}");
+                            return (uint)((typeIndex << 16) | methodIndex);
+                        }
+                    }
+                }
+            }
         }
 
-        // No valid entry point found
+        // If metadata wasn't set or lookup failed, try sensible defaults: free function `main` or method `Main`/`main`.
+        // Look for top-level `main`
+        for (int fi = 0; fi < module.Functions.Count; fi++)
+        {
+            if (module.Functions[fi].Name == "main")
+            {
+                Console.WriteLine("DEBUG: Defaulting entry point to free function 'main'");
+                return (uint)((0xFFFF << 16) | (uint)fi);
+            }
+        }
+
+        // Look for methods named 'main' or 'Main'
+        for (int typeIndex = 0; typeIndex < types.Length; typeIndex++)
+        {
+            var type = types[typeIndex];
+            if (type.Methods == null) continue;
+            for (int methodIndex = 0; methodIndex < type.Methods.Length; methodIndex++)
+            {
+                var name = type.Methods[methodIndex].Name;
+                if (name == "main" || name == "Main")
+                {
+                    Console.WriteLine($"DEBUG: Defaulting entry point to method {name} on type index {typeIndex}");
+                    return (uint)((typeIndex << 16) | methodIndex);
+                }
+            }
+        }
+
         Console.WriteLine("DEBUG: No valid entry point found");
         return 0xFFFFFFFFu;
     }
@@ -1241,6 +1296,9 @@ Name = property.Name,
     private List<string> BuildStringTable(ModuleData moduleData)
     {
         var strings = new HashSet<string>();
+
+        // Ensure empty string is present so lookups using "" don't fail
+        strings.Add(string.Empty);
 
         // Add module name
         if (!string.IsNullOrEmpty(moduleData.Name))
