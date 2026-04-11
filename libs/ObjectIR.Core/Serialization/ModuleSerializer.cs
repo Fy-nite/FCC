@@ -621,36 +621,11 @@ Name = property.Name,
     /// </summary>
     public byte[] DumpToFOB()
     {
-        using var stream = new MemoryStream();
-        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-
-        // Get module data
-        var moduleData = DumpModule();
-
-        // Build string table
-        var strings = BuildStringTable(moduleData);
-        var stringIndices = strings.Select((s, i) => (s, i)).ToDictionary(x => x.s, x => x.i);
-
-        // Build type table
-        var types = moduleData.Types ?? Array.Empty<TypeData>();
-        var typeIndices = types.Select((t, i) => (t, i)).ToDictionary(x => x.t, x => x.i);
-
-        // Write FOB header (with placeholder for file size)
-        long fileSizePos = WriteFOBHeader(writer, strings, types);
-
-        // Write sections
-        WriteStringsSection(writer, strings);
-        WriteTypesSection(writer, types, stringIndices, typeIndices);
-        WriteCodeSection(writer, moduleData);
-        WriteConstantsSection(writer, moduleData);
-
-        // Update file size in header
-        long fileSize = writer.BaseStream.Position;
-        writer.BaseStream.Position = fileSizePos;
-        writer.Write((uint)fileSize);
-        writer.BaseStream.Position = fileSize;
-
-        return stream.ToArray();
+        // Serialize the module IR to a FOB/IR v3 payload, then wrap it with the
+        // standard "FOB/IR" file header using FobIrCompiler.
+        var payload  = ObjectIR.Core.IR.ModuleBinaryWriter.Write(_module);
+        var compiler = new ObjectIR.FobCompiler.FobIrCompiler();
+        return compiler.CompileFromPayload(payload);
     }
 
     private long WriteFOBHeader(BinaryWriter writer, List<string> strings, TypeData[] types)
