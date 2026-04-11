@@ -65,6 +65,7 @@ public sealed class InstructionList : List<Instruction>
     public void Emit(Instruction instruction) => Add(instruction);
     
     public void EmitLoadArg(int index) => Add(new LoadArgInstruction(index));
+    public void EmitLoadArgByName(string name) => Add(new LoadArgInstruction(name));
     public void EmitLoadLocal(string name) => Add(new LoadLocalInstruction(name));
     public void EmitLoadField(FieldReference field) => Add(new LoadFieldInstruction(field));
     public void EmitLoadStaticField(FieldReference field) => Add(new LoadStaticFieldInstruction(field));

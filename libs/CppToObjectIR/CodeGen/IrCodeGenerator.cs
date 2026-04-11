@@ -571,7 +571,7 @@ public sealed class IrCodeGenerator
     {
         if (_paramIndices.TryGetValue(name, out int idx))
         {
-            il.EmitLoadArg(idx);
+            il.EmitLoadArgByName(name);
         }
         else if (_locals.ContainsKey(name))
         {
@@ -866,6 +866,10 @@ public sealed class IrCodeGenerator
 
     private void EmitCall(CallExpressionNode call, InstructionList il, TypeReference? returnTypeHint = null)
     {
+        // Handle conversion methods: x.ToString(), x.ToInt(), etc.
+        if (TryEmitConversionMethod(call, il))
+            return;
+
         // Determine method reference
         string methodName;
         TypeReference? declaringType = null;
@@ -911,12 +915,54 @@ public sealed class IrCodeGenerator
             EmitExpression(arg, il);
 
         var paramTypes = call.Arguments.Select(InferExprType).ToList();
-        var methodRef = new MethodReference(declaringType, methodName, returnTypeHint ?? TypeReference.Void, paramTypes);
+        // If the caller didn't provide a return-type hint, try to infer the call's return type
+        var inferredReturn = returnTypeHint ?? InferCallReturnType(call);
+        var methodRef = new MethodReference(declaringType, methodName, inferredReturn, paramTypes);
 
         if (call.Callee is MemberAccessNode)
             il.EmitCallVirtual(methodRef);
         else
             il.EmitCall(methodRef);
+    }
+
+    private bool TryEmitConversionMethod(CallExpressionNode call, InstructionList il)
+    {
+        if (call.Callee is not MemberAccessNode mem || call.Arguments.Count != 0)
+            return false;
+
+        var (convertName, returnType) = mem.Member switch
+        {
+            "ToString"  => ("ToString",  TypeReference.String),
+            "ToInt"     => ("ToInt32",   TypeReference.Int32),
+            "ToInt32"   => ("ToInt32",   TypeReference.Int32),
+            "ToShort"   => ("ToInt16",   TypeReference.Int16),
+            "ToInt16"   => ("ToInt16",   TypeReference.Int16),
+            "ToLong"    => ("ToInt64",   TypeReference.Int64),
+            "ToInt64"   => ("ToInt64",   TypeReference.Int64),
+            "ToFloat"   => ("ToSingle",  TypeReference.Float32),
+            "ToSingle"  => ("ToSingle",  TypeReference.Float32),
+            "ToDouble"  => ("ToDouble",  TypeReference.Float64),
+            "ToBool"    => ("ToBoolean", TypeReference.Bool),
+            "ToBoolean" => ("ToBoolean", TypeReference.Bool),
+            "ToUInt"    => ("ToUInt32",  TypeReference.UInt32),
+            "ToUInt32"  => ("ToUInt32",  TypeReference.UInt32),
+            "ToByte"    => ("ToByte",    TypeReference.UInt8),
+            "ToChar"    => ("ToChar",    TypeReference.Char),
+            _           => ((string?)null, TypeReference.Void)
+        };
+
+        if (convertName == null)
+            return false;
+
+        EmitExpression(mem.Object, il);
+        var receiverType = InferExprType(mem.Object);
+        var methodRef = new MethodReference(
+            TypeReference.FromName("System.Convert"),
+            convertName,
+            returnType,
+            new List<TypeReference> { receiverType });
+        il.EmitCall(methodRef);
+        return true;
     }
 
     private void EmitMemberAccess(MemberAccessNode member, InstructionList il)
@@ -1038,8 +1084,13 @@ public sealed class IrCodeGenerator
         FloatLiteralNode _                                                => TypeReference.Float64,
         BoolLiteralNode _                                                 => TypeReference.Bool,
         CharLiteralNode _                                                 => TypeReference.Char,
+        // Local variable
         IdentifierNode id when _locals.TryGetValue(id.Name, out var lt)  => lt,
+        // Parameter
         IdentifierNode id when _paramTypes.TryGetValue(id.Name, out var pt) => pt,
+        // Field on current type (allow resolving instance fields when referenced by name)
+        IdentifierNode id when _currentType is ClassDefinition cdef && cdef.Fields.FirstOrDefault(f => f.Name == id.Name) is var f && f != null => f.Type,
+        IdentifierNode id when _currentType is StructDefinition sdef && sdef.Fields.FirstOrDefault(f => f.Name == id.Name) is var sf && sf != null => sf.Type,
         MemberAccessNode mem                                              => InferMemberAccessType(mem),
         BinaryExpressionNode bin                                           => InferBinaryExpressionType(bin),
         CallExpressionNode call                                             => InferCallReturnType(call),
@@ -1061,6 +1112,26 @@ public sealed class IrCodeGenerator
 
     private TypeReference InferCallReturnType(CallExpressionNode call)
     {
+        // Conversion methods: x.ToString(), x.ToInt(), etc.
+        if (call.Callee is MemberAccessNode convMem && call.Arguments.Count == 0)
+        {
+            var retType = convMem.Member switch
+            {
+                "ToString"                            => TypeReference.String,
+                "ToInt"   or "ToInt32"                => TypeReference.Int32,
+                "ToShort" or "ToInt16"                => TypeReference.Int16,
+                "ToLong"  or "ToInt64"                => TypeReference.Int64,
+                "ToFloat" or "ToSingle"               => TypeReference.Float32,
+                "ToDouble"                            => TypeReference.Float64,
+                "ToBool"  or "ToBoolean"              => TypeReference.Bool,
+                "ToUInt"  or "ToUInt32"               => TypeReference.UInt32,
+                "ToByte"                              => TypeReference.UInt8,
+                "ToChar"                              => TypeReference.Char,
+                _                                     => (TypeReference?)null
+            };
+            if (retType != null) return retType;
+        }
+
         // Try to resolve via callee information and member registry
         if (call.Callee is MemberAccessNode mem)
         {

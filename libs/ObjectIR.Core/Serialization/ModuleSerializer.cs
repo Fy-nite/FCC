@@ -1462,10 +1462,10 @@ Name = property.Name,
                 }
             }
 
-            // If this instruction itself is a WhileInstruction, expand its body
-            if (method.Instructions[i] is WhileInstruction whileInst)
+            // Route all structured control-flow instructions through DumpInstructionBlock
+            if (method.Instructions[i] is WhileInstruction or IfInstruction or ForEachInstruction)
             {
-                DumpInstructionBlock(sb, whileInst, indentLevel: 2); // method body indentation
+                DumpInstructionBlock(sb, method.Instructions[i], indentLevel: 2); // method body indentation
                 continue;
             }
 
@@ -1549,10 +1549,10 @@ Name = property.Name,
                 }
             }
 
-            // If this instruction itself is a WhileInstruction, expand its body
-            if (func.Instructions[i] is WhileInstruction whileInst)
+            // Route all structured control-flow instructions through DumpInstructionBlock
+            if (func.Instructions[i] is WhileInstruction or IfInstruction or ForEachInstruction)
             {
-                DumpInstructionBlock(sb, whileInst, indentLevel: 1); // function indentation
+                DumpInstructionBlock(sb, func.Instructions[i], indentLevel: 1); // function indentation
                 continue;
             }
 
@@ -1574,6 +1574,8 @@ Name = property.Name,
             case OpCode.Ldarg:
                 if (instruction is LoadArgInstruction loadArg)
                 {
+                    if (loadArg.Name != null)
+                        return $"ldarg {loadArg.Name}";
                     // Pretty-print `ldarg 0` as `ldarg this` when dumping an instance method
                     if (loadArg.Index == 0 && _currentMethodBeingDumped != null && !_currentMethodBeingDumped.IsStatic)
                         return "ldarg this";
@@ -1646,12 +1648,11 @@ Name = property.Name,
                 break;
 
             case OpCode.If:
-                if (instruction is IfInstruction ifInst)
+                // IfInstruction is normally rendered via DumpInstructionBlock; this is a safety fallback.
+                if (instruction is IfInstruction ifInstr)
                 {
-                    var cond = FormatCondition(ifInst.Condition);
-                    var thenCount = ifInst.ThenBlock.Count;
-                    var elseCount = ifInst.ElseBlock?.Count ?? 0;
-                    return $"if {cond} {{ then:{thenCount} else:{elseCount} }}";
+                    var cond = FormatCondition(ifInstr.Condition);
+                    return $"if ({cond}) {{ /* {ifInstr.ThenBlock.Count} then / {ifInstr.ElseBlock?.Count ?? 0} else instrs */ }}";
                 }
                 break;
 
@@ -1721,17 +1722,18 @@ Name = property.Name,
                 return "clt";
 
             case OpCode.While:
-                if (instruction is WhileInstruction whileInst)
+                // WhileInstruction is normally rendered via DumpInstructionBlock; this is a safety fallback.
+                if (instruction is WhileInstruction whileInstr)
                 {
-                    var cond = FormatCondition(whileInst.Condition);
-                    var bodyCount = whileInst.Body.Count;
-                    return $"while {cond} {{ body:{bodyCount} }}";
+                    var cond = FormatCondition(whileInstr.Condition);
+                    return $"while ({cond}) {{ /* {whileInstr.Body.Count} body instrs */ }}";
                 }
                 break;
             case OpCode.For:
-                if (instruction is ForEachInstruction fe)
+                // ForEachInstruction is normally rendered via DumpInstructionBlock; this is a safety fallback.
+                if (instruction is ForEachInstruction feInstr)
                 {
-                    return $"foreach ({fe.ItemName} in {fe.CollectionName}) {{ body:{fe.Body.Count} }}";
+                    return $"foreach ({feInstr.ItemName} in {feInstr.CollectionName}) {{ /* {feInstr.Body.Count} body instrs */ }}";
                 }
                 break;
 

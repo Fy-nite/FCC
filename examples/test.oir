@@ -1,23 +1,85 @@
-module test version 1.0.0
-// Program class
-class Program {
-    method get_value() -> int32 {
-        ldc.i4 42
+module Example version 1.0.0
+
+class Calculator : ICalculator {
+    field history: List<int32>
+    field count: int32
+    
+    constructor() {
+        newobj List<int32>
+        stfld Calculator.history
+        ldc.i4 0
+        stfld Calculator.count
+    }
+    
+    method Add(a: int32, b: int32) -> int32 {
+        local result: int32
+        
+        ldarg a
+        ldarg b
+        add
+        dup
+        stloc result
+        
+        ldarg this
+        ldfld Calculator.history
+        ldloc result
+        callvirt List<int32>.Add(int32) -> void
+        
+        ldarg this
+        dup
+        ldfld Calculator.count
+        ldc.i4 1
+        add
+        stfld Calculator.count
+        
+        ldloc result
         ret
     }
-
-    method Main() -> void {
-        local v: int32
-
-        ldstr "Hello, World!"
-        call System.Console.WriteLine(System.string) -> void
-        call __global.get_value() -> int32
-        stloc v
-        ldstr "get_value returned: "
-        call System.Console.Write(System.string) -> void
-        ldloc v
-        call System.Console.Write(System.string) -> void
-        ldstr "n"
-        call System.Console.Write(System.string) -> void
+    
+    method GetAverage() -> float32 {
+        local sum: int32
+        local i: int32
+        
+        ldarg this
+        ldfld Calculator.count
+        ldc.i4 0
+        ceq
+        
+        if (stack) {
+            ldc.r4 0.0
+            ret
+        }
+        
+        ldc.i4 0
+        stloc sum
+        ldc.i4 0
+        stloc i
+        
+        while (i < count) {
+            ldarg this
+            ldfld Calculator.history
+            ldloc i
+            callvirt List<int32>.get_Item(int32) -> int32
+            ldloc sum
+            add
+            stloc sum
+            
+            ldloc i
+            ldc.i4 1
+            add
+            stloc i
+        }
+        
+        ldloc sum
+        conv.r4
+        ldarg this
+        ldfld Calculator.count
+        conv.r4
+        div
+        ret
     }
+}
+
+interface ICalculator {
+    method Add(a: int32, b: int32) -> int32
 }

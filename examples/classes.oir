@@ -4,25 +4,19 @@ class Meow {
     private field speedX: float32
     private field speedY: float32
     private field speedZ: float32
+    private field RotSpeed: float32
 
     method OnStart() -> void {
-        ldc.i4 50
-        stsfld FCC.Meow.speedX
-        ldsfld FCC.Meow.speedX
-        pop
-        ldc.i4 90
-        stsfld FCC.Meow.speedY
-        ldsfld FCC.Meow.speedY
-        pop
-        ldc.i4 50
-        stsfld FCC.Meow.speedZ
-        ldsfld FCC.Meow.speedZ
+        ldc.r8 50
+        stsfld FCC.Meow.RotSpeed
+        ldsfld FCC.Meow.RotSpeed
         pop
     }
 
     method OnUpdate() -> void {
         local dt: float32
-        local cat: UnityEngine.GameObject
+        local accel: float32
+        local damping: float32
         local rotX: float32
         local rotY: float32
         local rotZ: float32
@@ -30,8 +24,106 @@ class Meow {
 
         call UnityEngine.Time.get_deltaTime() -> float32
         stloc dt
-        call IRRuntime.GetSelf() -> UnityEngine.GameObject
-        stloc cat
+        ldsfld FCC.Meow.RotSpeed
+        ldc.i4 50
+        mul
+        stloc accel
+        ldc.r4 5
+        stloc damping
+        ldstr "up"
+        call UnityEngine.Input.GetKey(System.string) -> int32
+        if (stack) {
+            ldsfld FCC.Meow.speedX
+            ldloc accel
+            ldloc dt
+            mul
+            sub
+            stsfld FCC.Meow.speedX
+            ldsfld FCC.Meow.speedX
+            pop
+        }
+        else {
+            ldstr "down"
+            call UnityEngine.Input.GetKey(System.string) -> int32
+            if (stack) {
+                ldsfld FCC.Meow.speedX
+                ldloc accel
+                ldloc dt
+                mul
+                add
+                stsfld FCC.Meow.speedX
+                ldsfld FCC.Meow.speedX
+                pop
+            }
+        }
+        ldstr "up"
+        call UnityEngine.Input.GetKey(System.string) -> int32
+        not  // TODO: Implement proper formatting
+        ldstr "down"
+        call UnityEngine.Input.GetKey(System.string) -> int32
+        not  // TODO: Implement proper formatting
+        and  // TODO: Implement proper formatting
+        if (stack) {
+            ldsfld FCC.Meow.speedX
+            ldc.r8 1
+            ldc.r8 1
+            ldloc damping
+            ldloc dt
+            mul
+            add
+            div
+            mul
+            stsfld FCC.Meow.speedX
+            ldsfld FCC.Meow.speedX
+            pop
+        }
+        ldstr "right"
+        call UnityEngine.Input.GetKey(System.string) -> int32
+        if (stack) {
+            ldsfld FCC.Meow.speedY
+            ldloc accel
+            ldloc dt
+            mul
+            sub
+            stsfld FCC.Meow.speedY
+            ldsfld FCC.Meow.speedY
+            pop
+        }
+        else {
+            ldstr "left"
+            call UnityEngine.Input.GetKey(System.string) -> int32
+            if (stack) {
+                ldsfld FCC.Meow.speedY
+                ldloc accel
+                ldloc dt
+                mul
+                add
+                stsfld FCC.Meow.speedY
+                ldsfld FCC.Meow.speedY
+                pop
+            }
+        }
+        ldstr "right"
+        call UnityEngine.Input.GetKey(System.string) -> int32
+        not  // TODO: Implement proper formatting
+        ldstr "left"
+        call UnityEngine.Input.GetKey(System.string) -> int32
+        not  // TODO: Implement proper formatting
+        and  // TODO: Implement proper formatting
+        if (stack) {
+            ldsfld FCC.Meow.speedY
+            ldc.r8 1
+            ldc.r8 1
+            ldloc damping
+            ldloc dt
+            mul
+            add
+            div
+            mul
+            stsfld FCC.Meow.speedY
+            ldsfld FCC.Meow.speedY
+            pop
+        }
         ldsfld FCC.Meow.speedX
         ldloc dt
         mul
@@ -44,13 +136,25 @@ class Meow {
         ldloc dt
         mul
         stloc rotZ
-        ldloc cat
+        call IRRuntime.GetSelf() -> UnityEngine.GameObject
         callvirt UnityEngine.GameObject.get_transform() -> UnityEngine.Transform
         stloc tf
         ldloc tf
         ldloc rotX
         ldloc rotY
         ldloc rotZ
-        callvirt UnityEngine.Transform.Rotate(float32, float32, float32) -> void
+        callvirt UnityEngine.Transform.Translate(float32, float32, float32) -> int32
+        ldc.i4 0
+        stsfld FCC.Meow.speedX
+        ldsfld FCC.Meow.speedX
+        pop
+        ldc.i4 0
+        stsfld FCC.Meow.speedY
+        ldsfld FCC.Meow.speedY
+        pop
+        ldc.i4 0
+        stsfld FCC.Meow.speedZ
+        ldsfld FCC.Meow.speedZ
+        pop
     }
 }

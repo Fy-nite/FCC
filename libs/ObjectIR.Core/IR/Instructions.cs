@@ -7,10 +7,17 @@ namespace ObjectIR.Core.IR;
 public sealed class LoadArgInstruction : Instruction
 {
     public int Index { get; set; }
+    public string? Name { get; set; }
 
     public LoadArgInstruction(int index) : base(OpCode.Ldarg)
     {
         Index = index;
+    }
+
+    public LoadArgInstruction(string name) : base(OpCode.Ldarg)
+    {
+        Name = name;
+        Index = -1;
     }
 
     public override void Accept(IInstructionVisitor visitor) => visitor.Visit(this);
